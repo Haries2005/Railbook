@@ -12,7 +12,7 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, setUser } = useAuth(); // <-- get setUser from context
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -26,54 +26,53 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-  setIsLoading(true);
+    setIsLoading(true);
 
-  try {
-    // Hardcoded admin credentials check
-    if (formData.email === 'admin@railbook.com' && formData.password === 'admin123') {
-      // Set admin user and token
-      const adminToken = 'admin-token';
-      const adminUser = {
-        _id: 'admin',
-        name: 'Admin',
-        email: 'admin@railbook.com',
-        role: 'admin'
-      };
-      
-      localStorage.setItem('token', adminToken);
-      localStorage.setItem('user', JSON.stringify(adminUser));
-      
-      console.log('✅ Admin logged in with token:', adminToken);
-      
-      onNavigate('admin');
-      setIsLoading(true);
-      return;
-    }
+    try {
+      // Hardcoded admin credentials check
+      if (formData.email === 'admin@railbook.com' && formData.password === 'admin123') {
+        const adminUser = {
+          id: 'admin',
+          name: 'Admin',
+          email: 'admin@railbook.com',
+          role: 'admin'
+        };
+        const adminToken = 'admin-token';
 
-    // Normal user login
-    const success = await login(formData.email, formData.password);
-    if (success) {
-      const storedUser = localStorage.getItem('user');
-      const user = storedUser ? JSON.parse(storedUser) : null;
-      
-      if (user?.role === 'admin') {
+        // Save to context AND localStorage
+        setUser(adminUser);
+        localStorage.setItem('token', adminToken);
+
         onNavigate('admin');
-      } else {
-        onNavigate('search');
+        setIsLoading(false);
+        return;
       }
-    } else {
-      setErrors({ general: 'Invalid email or password' });
-    }
-  } catch (error) {
-    setErrors({ general: 'Login failed. Please try again.' });
-  }
 
-  setIsLoading(false);
-};
+      // Normal user login
+      const success = await login(formData.email, formData.password);
+
+      if (success) {
+        const storedUser = localStorage.getItem('user');
+        const user = storedUser ? JSON.parse(storedUser) : null;
+
+        if (user?.role === 'admin') {
+          onNavigate('admin');
+        } else {
+          onNavigate('search');
+        }
+      } else {
+        setErrors({ general: 'Invalid email or password' });
+      }
+    } catch (error) {
+      setErrors({ general: 'Login failed. Please try again.' });
+    }
+
+    setIsLoading(false);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -83,7 +82,6 @@ const handleSubmit = async (e: React.FormEvent) => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full space-y-8">
-        {/* Header */}
         <div className="text-center">
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
             <Train className="h-8 w-8 text-white" />
@@ -92,7 +90,6 @@ const handleSubmit = async (e: React.FormEvent) => {
           <p className="text-slate-400">Sign in to book your train tickets</p>
         </div>
 
-        {/* Login Form */}
         <form className="mt-8 space-y-6 bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700" onSubmit={handleSubmit}>
           {errors.general && (
             <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg">
@@ -145,7 +142,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
