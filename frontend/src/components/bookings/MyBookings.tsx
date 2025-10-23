@@ -59,7 +59,7 @@ const MyBookings: React.FC<MyBookingsProps> = ({ onNavigate }) => {
       }
 
       // ✅ CORRECT endpoint - just /api/bookings (backend filters by user)
-      const res = await axios.get('http://localhost:5000/api/bookings', {
+      const res = await axios.get('https://railbook-u0cg.onrender.com/api/bookings', {
         headers: {
           Authorization: `Bearer ${token}`
         }
