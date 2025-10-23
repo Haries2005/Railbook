@@ -1,7 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
-// Use environment variable for API URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface User {
@@ -14,6 +13,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  setUser: (user: User | null) => void; // <-- expose setUser
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -34,7 +34,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, _setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   // Load token & user from localStorage on mount
@@ -42,8 +42,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (storedToken) setToken(storedToken);
-    if (storedUser) setUser(JSON.parse(storedUser));
+    if (storedUser) _setUser(JSON.parse(storedUser));
   }, []);
+
+  // Wrapper to update user both in state and localStorage
+  const setUser = (user: User | null) => {
+    if (user) localStorage.setItem('user', JSON.stringify(user));
+    else localStorage.removeItem('user');
+    _setUser(user);
+  };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     try {
@@ -52,24 +59,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });
-
       const data = await res.json();
 
-      if (!res.ok) {
-        console.error('Register failed:', data);
-        return false;
-      }
+      if (!res.ok) return false;
 
       if (data.token && data.user) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
         setToken(data.token);
-        setUser({ 
-          id: data.user._id, 
-          name: data.user.name, 
-          email: data.user.email, 
-          role: data.user.role || 'user' 
-        });
+        setUser({ id: data.user._id, name: data.user.name, email: data.user.email, role: data.user.role || 'user' });
       }
 
       return true;
@@ -86,26 +83,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
       const data = await res.json();
 
-      if (!res.ok) {
-        console.error('Login failed:', data);
-        return false;
-      }
+      if (!res.ok) return false;
 
       if (data.token && data.user) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
         setToken(data.token);
-        setUser({ 
-          id: data.user._id, 
-          name: data.user.name, 
-          email: data.user.email, 
-          role: data.user.role || 'user' 
-        });
-      } else {
-        setUser({ id: '', name: '', email, role: 'user' });
+        setUser({ id: data.user._id, name: data.user.name, email: data.user.email, role: data.user.role || 'user' });
       }
 
       return true;
@@ -119,12 +104,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
   };
 
   const value: AuthContextType = {
     user,
     token,
+    setUser, // <-- now available for Login.tsx
     login,
     register,
     logout,
