@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Train, Clock, MapPin, Trash2, X } from 'lucide-react';
 import axios from 'axios';
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = 'https://railbook-u0cg.onrender.com';
 interface AdminDashboardProps {
   onNavigate: (page: string) => void;
 }
