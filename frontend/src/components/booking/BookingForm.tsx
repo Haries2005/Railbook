@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,} from 'react';
 import { User, Phone, CreditCard, Plus, Minus, AlertCircle, Mail, MessageSquare } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Passenger } from '../../contexts/AppContext';
@@ -6,10 +6,13 @@ import SeatSelection from './SeatSelection';
 import jsPDF from 'jspdf';
 
 interface BookingFormProps {
+  user: { id: string; name: string };
   onNavigate: (page: string) => void;
 }
 
 const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
+
+
   const { selectedTrain, selectedClass, journeyDate, selectedSeats, createBooking } = useApp();
   const [formData, setFormData] = useState({
     mobileNumber: '',
@@ -26,10 +29,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     onNavigate('search');
     return null;
   }
-
-  const selectedClassInfo = selectedTrain.classes.find(c => c.name === selectedClass);
-  const totalFare = (selectedClassInfo?.price || 0) * passengers.length;
-
+const selectedClassInfo = selectedTrain.classes.find(c => c.class_name === selectedClass);
+const totalFare = (selectedClassInfo?.fare || 0) * passengers.length;
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -157,7 +158,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.text('🚂 RAILBOOK', 20, 22);
+    doc.text('RAILBOOK', 20, 22);
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
@@ -203,7 +204,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(59, 130, 246);
-    doc.text('🚆 TRAIN DETAILS', 25, 85);
+    doc.text('TRAIN DETAILS', 25, 85);
     
     // Section separator line
     doc.setDrawColor(59, 130, 246);
@@ -239,7 +240,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(59, 130, 246);
-    doc.text('👥 PASSENGER DETAILS', 25, yPos + 15);
+    doc.text('PASSENGER DETAILS', 25, yPos + 15);
     
     doc.setDrawColor(59, 130, 246);
     doc.line(25, yPos + 18, 185, yPos + 18);
@@ -272,7 +273,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
       doc.text(passenger.name, 40, yPos);
       doc.text(`${passenger.age}`, 110, yPos);
       doc.text(passenger.gender.toUpperCase(), 130, yPos);
-      doc.text(selectedSeats[index] || 'N/A', 155, yPos);
+      doc.text(passenger.seatNumber || selectedSeats[index] || 'N/A', 155, yPos);
       doc.text(passenger.berth.toUpperCase(), 175, yPos);
       yPos += 7;
     });
@@ -281,7 +282,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(59, 130, 246);
-    doc.text('📞 CONTACT INFORMATION', 25, yPos + 15);
+    doc.text('CONTACT INFORMATION', 25, yPos + 15);
     
     doc.setDrawColor(59, 130, 246);
     doc.line(25, yPos + 18, 185, yPos + 18);
@@ -291,8 +292,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setFont('helvetica', 'normal');
     
     yPos += 28;
-    doc.text(`📱 Mobile: ${formData.mobileNumber}`, 25, yPos);
-    doc.text(`📧 Email: ${formData.email}`, 25, yPos + 8);
+    doc.text(`Mobile: ${formData.mobileNumber}`, 25, yPos);
+    doc.text(`Email: ${formData.email}`, 25, yPos + 8);
     
     // Fare Details with premium styling
     doc.setFillColor(16, 185, 129);
@@ -304,7 +305,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text(`💰 TOTAL FARE: ₹${booking.totalFare}`, 25, yPos + 35);
+    doc.text(`TOTAL FARE: Rs.${booking.totalFare}/-`, 25, yPos + 35);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -391,46 +392,98 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
     doc.save(`railbook-ticket-${booking.pnr}.pdf`);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+// Add this at the beginning of handleSubmit, right after the seat validation
 
-    setIsLoading(true);
-    
-    try {
-      const booking = createBooking({
-        trainId: selectedTrain.id,
-        trainNumber: selectedTrain.number,
-        trainName: selectedTrain.name,
-        source: selectedTrain.source,
-        destination: selectedTrain.destination,
-        journeyDate,
-        departureTime: selectedTrain.departureTime,
-        arrivalTime: selectedTrain.arrivalTime,
-        selectedClass,
-        passengers,
-        mobileNumber: formData.mobileNumber,
-        totalFare
-      });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
 
-      // Send notifications
-      await sendNotifications(booking);
+  console.log('🔍 DEBUG - Current selectedSeats:', selectedSeats);
+  console.log('🔍 DEBUG - Current passengers:', passengers);
+  console.log('🔍 DEBUG - Selected Train:', selectedTrain);
+  console.log('🔍 DEBUG - Train ID check:', {
+    _id: selectedTrain._id,
+    id: selectedTrain.id,
+    fullObject: JSON.stringify(selectedTrain, null, 2)
+  });
 
-      // Generate PDF
-      generatePDF(booking);
+  // CRITICAL CHECK: Verify seats are selected
+  if (selectedSeats.length === 0) {
+    setErrors({ seats: 'Please select seats before booking' });
+    return;
+  }
 
-      // Show success and navigate
-      setTimeout(() => {
-        alert(`Booking successful! PNR: ${booking.pnr}\nTicket PDF has been downloaded.\nConfirmation sent to your email and mobile.`);
-        onNavigate('search');
-      }, 1000);
-    } catch (error) {
-      setErrors({ general: 'Booking failed. Please try again.' });
-    }
-    
+  if (selectedSeats.length !== passengers.length) {
+    setErrors({ seats: `Please select ${passengers.length} seat(s)` });
+    return;
+  }
+
+  // CRITICAL CHECK: Verify train has an ID
+  const trainId = selectedTrain._id || selectedTrain.id;
+  if (!trainId) {
+    console.error('❌ No train ID found!', selectedTrain);
+    setErrors({ general: 'Invalid train selection. Please go back and select a train again.' });
+    return;
+  }
+
+  setIsLoading(true);
+  
+  try {
+    // IMPORTANT: Create new array with seat assignments
+    const passengersWithSeats = passengers.map((passenger, index) => {
+      const seatNum = selectedSeats[index];
+      console.log(`🎫 Assigning seat "${seatNum}" to passenger ${index + 1}: ${passenger.name}`);
+      
+      return {
+        name: passenger.name,
+        age: passenger.age,
+        gender: passenger.gender,
+        aadharNumber: passenger.aadharNumber,
+        berth: passenger.berth,
+        seatNumber: seatNum
+      };
+    });
+
+    console.log('👥 Final passengers array:', JSON.stringify(passengersWithSeats, null, 2));
+
+    const bookingData = {
+      trainId: trainId, // Use the verified trainId
+      trainNumber: selectedTrain.train_number,
+      trainName: selectedTrain.train_name,
+      source: selectedTrain.source_station,
+      destination: selectedTrain.destination_station,
+      journeyDate,
+      departureTime: selectedTrain.departure_time,
+      arrivalTime: selectedTrain.arrival_time,
+      selectedClass,
+      passengers: passengersWithSeats,
+      mobileNumber: formData.mobileNumber,
+      totalFare,
+    };
+
+    console.log('📦 FINAL booking data:', JSON.stringify(bookingData, null, 2));
+
+    const booking = await createBooking(bookingData);
+
+    console.log('✅ Booking successful:', booking);
+
+    // Send notifications
+    await sendNotifications(booking);
+
+    // Generate PDF
+    generatePDF(booking);
+
+    // Show success
+    alert(`Booking successful! PNR: ${booking.pnr}\nTicket PDF has been downloaded.\nConfirmation sent to your email and mobile.`);
+    onNavigate('search');
+  } catch (error: any) {
+    console.error('❌ Booking error:', error);
+    setErrors({ general: error.message || 'Booking failed. Please try again.' });
+  } finally {
     setIsLoading(false);
-  };
+  }
+};
 
   const handleSeatsSelected = (seats: string[]) => {
     // Seats are automatically updated through context
@@ -671,11 +724,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Train</span>
-                  <span className="text-white font-medium">{selectedTrain.number}</span>
+                  <span className="text-white font-medium">{selectedTrain.train_number}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Route</span>
-                  <span className="text-white text-sm">{selectedTrain.source} → {selectedTrain.destination}</span>
+                  <span className="text-white text-sm">{selectedTrain.source_station} → {selectedTrain.destination_station}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Journey Date</span>
@@ -691,7 +744,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onNavigate }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Price per ticket</span>
-                  <span className="text-white font-medium">₹{selectedClassInfo?.price}</span>
+                  <span className="text-white font-medium">₹{selectedClassInfo?.fare}</span>
                 </div>
                 {selectedSeats.length > 0 && (
                   <div className="flex justify-between">

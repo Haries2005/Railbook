@@ -1,30 +1,35 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from "react";
+
+// Use environment variable for API URL
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export interface Train {
-  id: string;
-  number: string;
-  name: string;
-  source: string;
-  destination: string;
-  departureTime: string;
-  arrivalTime: string;
+  _id?: string;
+  id?: string;
+  train_number: string;
+  train_name: string;
+  source_station: string;
+  destination_station: string;
+  departure_time: string;
+  arrival_time: string;
   classes: {
-    name: string;
-    price: number;
-    available: number;
+    class_name: string;
+    fare: number;
+    available_seats: number;
   }[];
 }
 
 export interface Passenger {
   name: string;
   age: number;
-  gender: 'male' | 'female';
+  gender: "male" | "female";
   aadharNumber: string;
-  berth: 'lower' | 'middle' | 'upper' | 'side-lower' | 'side-upper';
+  berth: "lower" | "middle" | "upper" | "side-lower" | "side-upper";
   seatNumber?: string;
 }
 
 export interface Booking {
+  userId: string;
   id: string;
   pnr: string;
   trainId: string;
@@ -40,7 +45,7 @@ export interface Booking {
   mobileNumber: string;
   totalFare: number;
   bookingDate: Date;
-  status: 'confirmed' | 'waitlisted' | 'cancelled';
+  status: "confirmed" | "waitlisted" | "cancelled";
 }
 
 interface AppContextType {
@@ -51,22 +56,31 @@ interface AppContextType {
   selectedSeats: string[];
   bookings: Booking[];
   journeyDate: string;
-  searchTrains: (trainNumber?: string, source?: string, destination?: string) => void;
+  setJourneyDate: React.Dispatch<React.SetStateAction<string>>;
+  searchTrains: (
+    trainNumber?: string,
+    source?: string,
+    destination?: string
+  ) => Promise<void>;
   selectTrain: (train: Train, className: string, journeyDate: string) => void;
-  addTrain: (train: Omit<Train, 'id'>) => void;
-  updateTrain: (id: string, train: Omit<Train, 'id'>) => void;
-  createBooking: (booking: Omit<Booking, 'id' | 'pnr' | 'bookingDate' | 'status'>) => Booking;
+  addTrain: (train: Omit<Train, "id">) => Promise<void>;
+  updateTrain: (id: string, train: Omit<Train, "id">) => Promise<void>;
+  createBooking: (
+    booking: Omit<Booking, "id" | "pnr" | "bookingDate" | "status">
+  ) => Promise<Booking>;
   selectSeats: (seats: string[]) => void;
-  getAvailableSeats: (trainId: string, className: string, journeyDate: string) => string[];
+  getAvailableSeats: (
+    trainId: string,
+    className: string,
+    journeyDate: string
+  ) => Promise<string[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
+  if (!context) throw new Error("useApp must be used within AppProvider");
   return context;
 };
 
@@ -75,151 +89,167 @@ interface AppProviderProps {
 }
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
-  const [trains] = useState<Train[]>([
-    {
-      id: '1',
-      number: '12301',
-      name: 'Rajdhani Express',
-      source: 'New Delhi',
-      destination: 'Mumbai Central',
-      departureTime: '16:55',
-      arrivalTime: '08:35+1',
-      classes: [
-        { name: '1A', price: 4500, available: 10 },
-        { name: '2A', price: 3200, available: 25 },
-        { name: '3A', price: 2300, available: 40 }
-      ]
-    },
-    {
-      id: '2',
-      number: '12002',
-      name: 'Shatabdi Express',
-      source: 'New Delhi',
-      destination: 'Chandigarh',
-      departureTime: '17:40',
-      arrivalTime: '20:35',
-      classes: [
-        { name: 'CC', price: 1200, available: 60 },
-        { name: 'EC', price: 2400, available: 20 }
-      ]
-    },
-    {
-      id: '3',
-      number: '16649',
-      name: 'Parasuram Express',
-      source: 'Chennai Central',
-      destination: 'Mangalore Central',
-      departureTime: '14:30',
-      arrivalTime: '06:30+1',
-      classes: [
-        { name: 'SL', price: 800, available: 150 },
-        { name: '3A', price: 1800, available: 45 },
-        { name: '2A', price: 2800, available: 25 }
-      ]
-    }
-  ]);
-
+  const [trains, setTrains] = useState<Train[]>([]);
   const [searchResults, setSearchResults] = useState<Train[]>([]);
   const [selectedTrain, setSelectedTrain] = useState<Train | null>(null);
-  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const [journeyDate, setJourneyDate] = useState<string>('');
+  const [journeyDate, setJourneyDate] = useState<string>("");
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  const searchTrains = (trainNumber?: string, source?: string, destination?: string) => {
-    let results = trains;
+  const searchTrains = async (
+    trainNumber?: string,
+    source?: string,
+    destination?: string
+  ) => {
+    try {
+      const params = new URLSearchParams();
+      if (trainNumber) params.append("trainNumber", trainNumber);
+      if (source) params.append("source", source);
+      if (destination) params.append("destination", destination);
 
-    if (trainNumber && trainNumber.trim()) {
-      results = results.filter(train => 
-        train.number.toLowerCase().includes(trainNumber.toLowerCase()) ||
-        train.name.toLowerCase().includes(trainNumber.toLowerCase())
+      const res = await fetch(
+        `${BACKEND_URL}/api/trains/search?${params.toString()}`,
+        { cache: "no-store" }
       );
-    }
 
-    if (source && source.trim()) {
-      results = results.filter(train => 
-        train.source.toLowerCase().includes(source.toLowerCase())
-      );
+      if (!res.ok) throw new Error("Failed to fetch trains");
+      const data = await res.json();
+      
+      const mappedData = data.map((train: any) => ({
+        ...train,
+        id: train._id,
+        _id: train._id
+      }));
+      
+      setSearchResults(mappedData);
+    } catch (err) {
+      console.error("❌ Error fetching trains:", err);
+      setSearchResults([]);
     }
-
-    if (destination && destination.trim()) {
-      results = results.filter(train => 
-        train.destination.toLowerCase().includes(destination.toLowerCase())
-      );
-    }
-
-    setSearchResults(results);
   };
 
-  const selectTrain = (train: Train, className: string, journeyDate: string) => {
+  const selectTrain = (train: Train, className: string, date: string) => {
     setSelectedTrain(train);
     setSelectedClass(className);
-    setJourneyDate(journeyDate);
+    setJourneyDate(date);
     setSelectedSeats([]);
   };
 
-  const addTrain = (train: Omit<Train, 'id'>) => {
-    // In a real app, this would make an API call
-    console.log('Adding train:', train);
-  };
-
-  const updateTrain = (id: string, train: Omit<Train, 'id'>) => {
-    // In a real app, this would make an API call
-    console.log('Updating train:', id, train);
-  };
-
-  const createBooking = (bookingData: Omit<Booking, 'id' | 'pnr' | 'bookingDate'>): Booking => {
-    const booking: Booking = {
-      ...bookingData,
-      id: Date.now().toString(),
-      pnr: generatePNR(),
-      bookingDate: new Date(),
-      status: 'confirmed'
-    };
-
-    setBookings(prev => [...prev, booking]);
-    return booking;
-  };
-
-  const selectSeats = (seats: string[]) => {
-    setSelectedSeats(seats);
-  };
-
-  const getAvailableSeats = (trainId: string, className: string, journeyDate: string): string[] => {
-    // Mock seat availability - in real app, this would be an API call
-    const totalSeats = className === 'SL' ? 72 : className === '3A' ? 64 : className === '2A' ? 46 : 18;
-    const bookedSeats = Math.floor(Math.random() * 20); // Random booked seats
-    
-    const allSeats: string[] = [];
-    for (let i = 1; i <= totalSeats; i++) {
-      allSeats.push(i.toString());
+  const addTrain = async (train: Omit<Train, "id">) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/trains`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(train),
+      });
+      if (!res.ok) throw new Error("Failed to add train");
+      const newTrain = await res.json();
+      setTrains((prev) => [...prev, newTrain]);
+    } catch (err) {
+      console.error("❌ Error adding train:", err);
     }
-    
-    // Remove some random seats as booked
-    const availableSeats = allSeats.slice(bookedSeats);
-    return availableSeats;
-  };
-  const generatePNR = (): string => {
-    // Generate 10-digit numeric PNR
-    return Math.floor(1000000000 + Math.random() * 9000000000).toString();
   };
 
-  const value: AppContextType = {
-    trains,
-    searchResults,
-    selectedTrain,
-    selectedClass,
-    selectedSeats,
-    bookings,
-    journeyDate,
-    searchTrains,
-    selectTrain,
-    addTrain,
-    updateTrain,
-    createBooking,
-    selectSeats,
-    getAvailableSeats
+  const updateTrain = async (id: string, train: Omit<Train, "id">) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/trains/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(train),
+      });
+      if (!res.ok) throw new Error("Failed to update train");
+      const updated = await res.json();
+      setTrains((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    } catch (err) {
+      console.error("❌ Error updating train:", err);
+    }
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  const createBooking = async (
+    bookingData: Omit<Booking, "id" | "pnr" | "bookingDate" | "status">
+  ): Promise<Booking> => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("User not authenticated");
+
+      const res = await fetch(`${BACKEND_URL}/api/bookings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      const responseData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(responseData.message || "Failed to create booking");
+      }
+
+      const booking: Booking = {
+        ...responseData,
+        bookingDate: new Date(responseData.bookingDate)
+      };
+      
+      setBookings((prev) => [...prev, booking]);
+      return booking;
+    } catch (err: any) {
+      console.error("❌ Error creating booking:", err);
+      throw new Error(err.message || "Booking failed");
+    }
+  };
+
+  const selectSeats = (seats: string[]) => setSelectedSeats(seats);
+
+  const getAvailableSeats = async (
+    trainId: string,
+    className: string,
+    journeyDate: string
+  ): Promise<string[]> => {
+    try {
+      if (!trainId) return [];
+
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${BACKEND_URL}/api/seats?trainId=${trainId}&className=${className}&journeyDate=${journeyDate}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }
+      );
+
+      if (!res.ok) return [];
+
+      const seats = await res.json();
+      return seats;
+    } catch (err) {
+      console.log("⚠️ Error fetching seats:", err);
+      return [];
+    }
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        trains,
+        searchResults,
+        selectedTrain,
+        selectedClass,
+        selectedSeats,
+        bookings,
+        journeyDate,
+        setJourneyDate,
+        searchTrains,
+        selectTrain,
+        addTrain,
+        updateTrain,
+        createBooking,
+        selectSeats,
+        getAvailableSeats,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 };

@@ -7,68 +7,77 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onNavigate }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 5) {
-      newErrors.password = 'Password must be at least 5 characters';
-    }
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 5) newErrors.password = 'Password must be at least 5 characters';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    setIsLoading(true);
-    
-    try {
-      const success = await login(formData.email, formData.password);
-      if (success) {
-        onNavigate('search');
-      } else {
-        setErrors({ general: 'Invalid email or password' });
-      }
-    } catch (error) {
-      setErrors({ general: 'Login failed. Please try again.' });
+  setIsLoading(true);
+
+  try {
+    // Hardcoded admin credentials check
+    if (formData.email === 'admin@.com' && formData.password === 'admin123') {
+      // Set admin user and token
+      const adminToken = 'admin-token';
+      const adminUser = {
+        _id: 'admin',
+        name: 'Admin',
+        email: 'admin@railbook.com',
+        role: 'admin'
+      };
+      
+      localStorage.setItem('token', adminToken);
+      localStorage.setItem('user', JSON.stringify(adminUser));
+      
+      console.log('✅ Admin logged in with token:', adminToken);
+      
+      onNavigate('admin');
+      setIsLoading(true);
+      return;
     }
-    
-    setIsLoading(false);
-  };
+
+    // Normal user login
+    const success = await login(formData.email, formData.password);
+    if (success) {
+      const storedUser = localStorage.getItem('user');
+      const user = storedUser ? JSON.parse(storedUser) : null;
+      
+      if (user?.role === 'admin') {
+        onNavigate('admin');
+      } else {
+        onNavigate('search');
+      }
+    } else {
+      setErrors({ general: 'Invalid email or password' });
+    }
+  } catch (error) {
+    setErrors({ general: 'Login failed. Please try again.' });
+  }
+
+  setIsLoading(false);
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    // Clear error when user starts typing
-    if (errors[e.target.name]) {
-      setErrors({
-        ...errors,
-        [e.target.name]: ''
-      });
-    }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: '' });
   };
 
   return (
@@ -90,13 +99,11 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
               {errors.general}
             </div>
           )}
-          
+
           <div className="space-y-4">
-            {/* Email Field */}
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-                Email Address
-              </label>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-slate-400" />
@@ -107,20 +114,16 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-3 py-3 border rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.email ? 'border-red-500' : 'border-slate-600 focus:border-blue-500'
-                  }`}
+                  className={`w-full pl-10 pr-3 py-3 border rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.email ? 'border-red-500' : 'border-slate-600 focus:border-blue-500'}`}
                   placeholder="Enter your email"
                 />
               </div>
               {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email}</p>}
             </div>
 
-            {/* Password Field */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Password
-              </label>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-slate-400" />
@@ -131,61 +134,30 @@ const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.password ? 'border-red-500' : 'border-slate-600 focus:border-blue-500'
-                  }`}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.password ? 'border-red-500' : 'border-slate-600 focus:border-blue-500'}`}
                   placeholder="Enter your password"
                 />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-300" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-slate-400 hover:text-slate-300" />
-                  )}
+                <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-300" /> : <Eye className="h-5 w-5 text-slate-400 hover:text-slate-300" />}
                 </button>
               </div>
               {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password}</p>}
             </div>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-600">
-            <p className="text-sm text-slate-300 mb-2 font-medium">Demo Credentials:</p>
-            <div className="space-y-1 text-xs text-slate-400">
-              <p><strong>User:</strong> user@example.com / password</p>
-              <p><strong>Admin:</strong> admin@example.com / admin</p>
-            </div>
-          </div>
-
-          {/* Submit Button */}
+          {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {isLoading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                Signing in...
-              </div>
-            ) : (
-              'Sign In'
-            )}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
 
-          {/* Register Link */}
           <div className="text-center">
             <p className="text-sm text-slate-400">
               Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => onNavigate('register')}
-                className="text-blue-400 hover:text-blue-300 font-medium"
-              >
+              <button type="button" onClick={() => onNavigate('register')} className="text-blue-400 hover:text-blue-300 font-medium">
                 Sign up here
               </button>
             </p>

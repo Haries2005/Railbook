@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div 
+          <div
             className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onNavigate('search')}
           >
@@ -43,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
               <Search className="h-4 w-4" />
               <span>Search Trains</span>
             </button>
-            
+
             <button
               onClick={() => onNavigate('bookings')}
               className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all ${
@@ -55,7 +55,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
               <User className="h-4 w-4" />
               <span>My Bookings</span>
             </button>
-            
+
             {isAdmin && (
               <button
                 onClick={() => onNavigate('admin')}
@@ -73,10 +73,13 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            <div className="hidden sm:flex items-center space-x-2 text-slate-300">
-              <User className="h-4 w-4" />
-              <span className="text-sm">{user?.name}</span>
-            </div>
+            {user ? (
+              <div className="hidden sm:flex items-center space-x-2 text-slate-300">
+                <User className="h-4 w-4" />
+                <span className="text-sm font-medium">Welcome, {user.name}</span>
+              </div>
+            ) : null}
+
             <button
               onClick={handleLogout}
               className="flex items-center space-x-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
@@ -100,7 +103,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
             <Search className="h-4 w-4" />
             <span>Search</span>
           </button>
-          
+
           <button
             onClick={() => onNavigate('bookings')}
             className={`flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg transition-all ${
@@ -112,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
             <User className="h-4 w-4" />
             <span>Bookings</span>
           </button>
-          
+
           {isAdmin && (
             <button
               onClick={() => onNavigate('admin')}
