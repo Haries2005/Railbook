@@ -34,7 +34,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     // Hardcoded admin credentials check
-    if (formData.email === 'admin@.com' && formData.password === 'admin123') {
+    if (formData.email === 'admin@railbook.com' && formData.password === 'admin123') {
       // Set admin user and token
       const adminToken = 'admin-token';
       const adminUser = {
